@@ -93,29 +93,34 @@ function md5() {
 		for ((i=0;i<64;i++)); do
 			local F g
 			if ((i<=15)); then
-				F=$(( (B&C)|((0xffffffff^B)&D) ))
-				g=$i
+				(( F=(B&C)|((0xffffffff^B)&D),
+				g=i ))
 			elif ((i<=31)); then
-				F=$(( (D&B)|((0xffffffff^D)&C) ))
-				g=$(((5*i +1)%16))
+				((F=(D&B)|((0xffffffff^D)&C),
+				g=(5*i +1)%16))
 			elif ((i<=47)); then
-				F=$((B^C^D))
-				g=$(((3*i +5)%16))
+				((
+				F=B^C^D,
+				g=(3*i +5)%16))
 			else
-				F=$((C^(B|(0xffffffff^D))))
-				g=$(((7*i)%16))
+				((F=C^(B|(0xffffffff^D)),
+				g=(7*i)%16))
 			fi
-			F=$(((F+A+${k[$i]}+${M[$g]})&0xffffffff))
-			A=$D
-			D=$C
-			C=$B
-			B=$(( (B+ ((((1<<32)-1)&(F<<${s[$i]}))|(F>>(32-${s[$i]}))) )&0xffffffff ))
+			((
+			F=(F+A+${k[$i]}+${M[$g]})&0xffffffff,
+			A=D,
+			D=C,
+			C=B,
+			B=(B+ ((((1<<32)-1)&(F<<${s[$i]}))|(F>>(32-${s[$i]}))) )&0xffffffff
+			))
 			#printf "i=%d,A=%08x,B=%08x,C=%08x,D=%08x\n" "$i" "$A" "$B" "$C" "$D"
 		done
-		a0=$(((a0+A)&0xffffffff))
-		b0=$(((b0+B)&0xffffffff))
-		c0=$(((c0+C)&0xffffffff))
-		d0=$(((d0+D)&0xffffffff))
+		((
+		a0=(a0+A)&0xffffffff,
+		b0=(b0+B)&0xffffffff,
+		c0=(c0+C)&0xffffffff,
+		d0=(d0+D)&0xffffffff
+		))
 	done
 	printf "%08x%08x%08x%08x" $(htonl "$a0") $(htonl "$b0") $(htonl "$c0") $(htonl "$d0")
 }
@@ -154,55 +159,64 @@ function sha256() {
 			w+=( "0x"${chunk:$wp:8} )
 			#echo "0x"${chunk:$wp:8} $(("0x"${chunk:$wp:8}))
 		done
+		local i_minus_15 i_minus_2 s0 s1 a b c d e f g h
 		for ((i=16;i!=64;i++)); do
-			local i_minus_15=${w[$((i-15))]}
-			local i_minus_2=${w[$((i-2))]}
-			local s0=$(( 	( (i_minus_15>>7)|((i_minus_15&((1<<7)-1))<<(32-7)) ) ^
+			((
+			i_minus_15=w[i-15],
+			i_minus_2=w[i-2],
+			s0= 	( (i_minus_15>>7)|((i_minus_15&((1<<7)-1))<<(32-7)) ) ^
 					( (i_minus_15>>18)|((i_minus_15&((1<<18)-1))<<(32-18)) )^
-					(i_minus_15>>3) ))
-			local s1=$(( 	( (i_minus_2>>17)|((i_minus_2&((1<<17)-1))<<(32-17)) ) ^
+					(i_minus_15>>3),
+			s1= 	( (i_minus_2>>17)|((i_minus_2&((1<<17)-1))<<(32-17)) ) ^
 					( (i_minus_2>>19)|((i_minus_2&((1<<19)-1))<<(32-19)) )^
-					(i_minus_2>>10) ))
-			w+=( $((0xffffffff& (${w[$((i-16))]}+s0+${w[$((i-7))]}+s1))) )
+					(i_minus_2>>10)
+			))
+			w+=( $((0xffffffff& (w[i-16]+s0+w[i-7]+s1))) )
 		done
-		local a=$h0
-		local b=$h1
-		local c=$h2
-		local d=$h3
-		local e=$h4
-		local f=$h5
-		local g=$h6
-		local h=$h7
+		((
+		a=h0,
+		b=h1,
+		c=h2,
+		d=h3,
+		e=h4,
+		f=h5,
+		g=h6,
+		h=h7
+		))
+		local S1 ch temp1 S0 maj temp2
 		for ((i=0;i<64;i++)); do
-			local S1=$(( 	( (e>>6)|((e&((1<<6)-1))<<(32-6)) )^
+			((
+				S1= 	( (e>>6)|((e&((1<<6)-1))<<(32-6)) )^
 					( (e>>11)|((e&((1<<11)-1))<<(32-11)) )^
-					( (e>>25)|((e&((1<<25)-1))<<(32-25)) ) ))
-			local ch=$(( (e&f)^((0xffffffff^e)&g) ))
-			local temp1=$((h + S1 + ch + ${kvals[$i]} + ${w[$i]}))
-			local S0=$((	( (a>>2)|((a&((1<<2)-1))<<(32-2)) )^
+					( (e>>25)|((e&((1<<25)-1))<<(32-25)) ),
+				ch=(e&f)^((0xffffffff^e)&g),
+				temp1=h + S1 + ch + kvals[i] + w[i],
+				S0=	( (a>>2)|((a&((1<<2)-1))<<(32-2)) )^
 					( (a>>13)|((a&((1<<13)-1))<<(32-13)) )^
-					( (a>>22)|((a&((1<<22)-1))<<(32-22)) ) ))
-			local maj=$(((a&b) ^ (a & c) ^ (b & c)))
-			local temp2=$((S0 + maj))
-
-			h=$g
-			g=$f
-			f=$e
-			e=$((0xffffffff&(d + temp1)))
-			d=$c
-			c=$b
-			b=$a
-			a=$((0xffffffff&(temp1 + temp2) ))
+					( (a>>22)|((a&((1<<22)-1))<<(32-22)) ),
+				maj=(a&b) ^ (a & c) ^ (b & c),
+				temp2=S0 + maj,
+				h=g,
+				g=f,
+				f=e,
+				e=0xffffffff&(d + temp1),
+				d=c,
+				c=b,
+				b=a,
+				a=0xffffffff&(temp1 + temp2)
+			))
 			#printf "i=%d,a=%08x,b=%08x,c=%08x,d=%08x,e=%08x,f=%08x,g=%08x,h=%08x\n" $i $a $b $c $d $e $f $g $h
 		done
-		h0=$((0xffffffff&(h0 + a)))
-		h1=$((0xffffffff&(h1 + b)))
-		h2=$((0xffffffff&(h2 + c)))
-		h3=$((0xffffffff&(h3 + d)))
-		h4=$((0xffffffff&(h4 + e)))
-		h5=$((0xffffffff&(h5 + f)))
-		h6=$((0xffffffff&(h6 + g)))
-		h7=$((0xffffffff&(h7 + h)))
+		((
+		h0=0xffffffff&(h0 + a),
+		h1=0xffffffff&(h1 + b),
+		h2=0xffffffff&(h2 + c),
+		h3=0xffffffff&(h3 + d),
+		h4=0xffffffff&(h4 + e),
+		h5=0xffffffff&(h5 + f),
+		h6=0xffffffff&(h6 + g),
+		h7=0xffffffff&(h7 + h)
+		))
 	done
 	printf "%08x%08x%08x%08x%08x%08x%08x%08x" "$h0" "$h1" "$h2" "$h3" "$h4" "$h5" "$h6" "$h7"
 }
